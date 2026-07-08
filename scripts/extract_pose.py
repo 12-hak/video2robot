@@ -19,17 +19,24 @@ from video2robot.pose.extractor import convert_all_prompthmr_tracks_to_smplx
 from video2robot.utils import emit_progress
 
 
-def run_prompthmr(video_path: Path, output_dir: Path, static_camera: bool = False) -> Path:
+def run_prompthmr(video_path: Path, output_dir: Path, static_camera: bool = False, force: bool = False) -> Path:
     """Run PromptHMR pipeline via subprocess
     
     Args:
         video_path: Input video path
         output_dir: Output directory (project folder)
         static_camera: Assume static camera (skip SLAM)
+        force: Delete cached PromptHMR results before re-running
     
     Returns:
         Path to results directory
     """
+    if force:
+        stale = output_dir / "results.pkl"
+        if stale.exists():
+            stale.unlink()
+            print(f"[PromptHMR] Deleted stale cache: {stale}")
+
     script_path = PROMPTHMR_DIR / "scripts" / "run_pipeline.py"
     output_folder = str(output_dir.absolute())
     
@@ -75,6 +82,8 @@ def main():
                         help="Project folder path (e.g., data/video_001)")
     parser.add_argument("--static-camera", action="store_true", 
                         help="Assume static camera (skip SLAM)")
+    parser.add_argument("--force", "-f", action="store_true",
+                        help="Re-run PromptHMR even if results.pkl exists")
 
     args = parser.parse_args()
 
@@ -92,7 +101,7 @@ def main():
     print(f"[Input]   {video_path}")
     print(f"[Output]  {output_path}")
     
-    run_prompthmr(video_path, project_dir, args.static_camera)
+    run_prompthmr(video_path, project_dir, args.static_camera, force=args.force)
     convert_prompthmr_results(project_dir, output_path, video_path)
 
     emit_progress("done", 1.0, "Done")

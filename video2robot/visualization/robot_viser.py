@@ -865,6 +865,20 @@ def main() -> None:
     camera = results.get("camera_world", results.get("camera", {}))
     Rwc_all = camera.get("Rwc", None)
     Twc_all = camera.get("Twc", None)
+    cam_frames = len(Rwc_all) if Rwc_all is not None else num_vis_frames
+    robot_frames = max(entry.num_frames for entry in entries)
+    sync_frames = min(num_vis_frames, cam_frames, robot_frames)
+    if sync_frames < num_vis_frames:
+        print(
+            f"[RobotViser] Warning: trimming video {num_vis_frames} -> {sync_frames} frames "
+            f"to match pose/camera/robot"
+        )
+        frames = frames[:sync_frames]
+        num_vis_frames = sync_frames
+        for entry in entries:
+            entry.vis_to_robot = [
+                min(vis_idx, entry.num_frames - 1) for vis_idx in range(num_vis_frames)
+            ]
 
     # --- Viser scene ---
     server = viser.ViserServer(host=args.host, port=args.port)
@@ -1082,9 +1096,10 @@ def main() -> None:
         vis_idx = max(0, min(num_vis_frames - 1, vis_idx))
         orig_idx = vis_idx * max(1, int(args.subsample))
 
-        if Rwc_all is not None and Twc_all is not None and orig_idx < len(Rwc_all) and orig_idx < len(Twc_all):
-            cam_R = np.asarray(Rwc_all[orig_idx], dtype=np.float32)
-            cam_T = np.asarray(Twc_all[orig_idx], dtype=np.float32)
+        if Rwc_all is not None and Twc_all is not None:
+            cam_idx = min(orig_idx, len(Rwc_all) - 1)
+            cam_R = np.asarray(Rwc_all[cam_idx], dtype=np.float32)
+            cam_T = np.asarray(Twc_all[cam_idx], dtype=np.float32)
         else:
             cam_R = np.eye(3, dtype=np.float32)
             cam_T = np.zeros(3, dtype=np.float32)
@@ -1151,9 +1166,9 @@ def main() -> None:
     # Initialize
     _update_scene(0)
 
-    url = f"https://localhost:{server.get_port()}"
+    url = f"http://127.0.0.1:{server.get_port()}"
     print(f"\n[RobotViser] Open in browser: {url}")
-    print("[RobotViser] Press Ctrl+C to stop")
+    print("[RobotViser] Use http (not https). Press Ctrl+C to stop")
 
     try:
         last_time = time.perf_counter()

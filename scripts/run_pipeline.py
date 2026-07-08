@@ -104,6 +104,8 @@ def run_pose_extraction(project_dir: Path, static_camera: bool, phmr_env: str, f
     argv = ["python", str(script_path), "--project", str(project_dir)]
     if static_camera:
         argv.append("--static-camera")
+    if force:
+        argv.append("--force")
 
     print(f"\n[Step 2/3] Extracting poses with PromptHMR (env={phmr_env})...")
     print(f"[Step 2/3] Command: {' '.join(argv)}")
@@ -117,9 +119,11 @@ def run_video_copy(project_dir: Path, video: str, force: bool = False):
         print(f"[Step 1/3] Video exists: {video_path} (use --force to overwrite)")
         return
 
-    src = Path(video)
-    if not src.exists():
-        raise FileNotFoundError(f"Video not found: {src}")
+    src = Path(video).resolve()
+    dst = video_path.resolve()
+    if src == dst:
+        print(f"\n[Step 1/3] Using existing video: {video_path}")
+        return
 
     project_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(src, video_path)
